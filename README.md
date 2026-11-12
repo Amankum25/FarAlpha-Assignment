@@ -425,6 +425,19 @@ When average pod usage across the deployment exceeds `140m` CPU, the HPA trigger
 
 ## Testing Scenarios & Evidence (Cookie Points)
 
+### Evidence Gallery (Live Cluster Screenshots)
+
+| Scenario | Screenshot Evidence | Description |
+|---|---|---|
+| **Cluster Topology** | ![Cluster Resources](screenshots/screenshot_1_cluster.png) | All pods (`mongodb-0`, 2 Flask replicas), services, PV/PVC bound, and HPA active |
+| **API Smoke Tests** | ![API Smoke Tests](screenshots/screenshot_2_tests.jpg) | Automated suite verifying all 5 endpoints (`GET /`, health probes, `POST /data`, `GET /data`, validation) |
+| **Browser Endpoint** | ![Browser Endpoint](screenshots/screenshot_2_browser.png) | Browser verification of root endpoint with real-time timestamp |
+| **HPA Scale-Up** | ![HPA Autoscaling](screenshots/screenshot_3_autoscaling.png) | Horizontal Pod Autoscaler scaling deployment to 4-5 replicas under CPU load (>70%) |
+| **Load Stress Run** | ![Stress Test](screenshots/screenshot_3_stress_completed.png) | High concurrency stress runner (376 requests completed at 6.04 req/s) |
+| **Data Persistence** | ![Data Persistence](screenshots/screenshot_4_persistence.png) | `mongodb-0` terminated and self-healed; all stored data preserved via PVC |
+
+---
+
 ### Test 1: CRUD & API Verification
 
 Execute the automated test script:
@@ -432,7 +445,7 @@ Execute the automated test script:
 python tests/test_api.py --url http://localhost:5000
 ```
 
-#### Actual Verified Output from Live Cluster Execution:
+#### Verified Terminal Output:
 ```text
 ============================================================
 RUNNING SMOKE TESTS AGAINST: http://localhost:5000
@@ -440,7 +453,7 @@ RUNNING SMOKE TESTS AGAINST: http://localhost:5000
 
 [1] Testing GET / (Welcome endpoint)...
     Status: 200
-    Response: Welcome to the Flask app! The current time is: 2026-11-12 08:17:08.358176
+    Response: Welcome to the Flask app! The current time is: 2026-11-12 08:31:54.117789
     --> PASS
 
 [2] Testing Health Probes...
@@ -455,7 +468,7 @@ RUNNING SMOKE TESTS AGAINST: http://localhost:5000
 
 [4] Testing GET /data (Retrieve documents)...
     Status: 200
-    Response: [{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794471428.3660972}]
+    Response: [{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794472230.5064094},{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794472314.1249523}]
     --> PASS
 
 [5] Testing Validation on invalid POST /data...
@@ -467,82 +480,38 @@ ALL API SMOKE TESTS PASSED SUCCESSFULLY!
 ============================================================
 ```
 
-#### Actual Cluster Resources (`kubectl get all,pv,pvc,hpa -n flask-demo -o wide`):
-```text
-NAME                         READY   STATUS    RESTARTS   AGE   IP           NODE       NOMINATED NODE   READINESS GATES
-pod/flask-6777577846-fwx9t   1/1     Running   0          3m    10.244.0.6   minikube   <none>           <none>
-pod/flask-6777577846-mgxg9   1/1     Running   0          3m    10.244.0.5   minikube   <none>           <none>
-pod/mongodb-0                1/1     Running   0          3m    10.244.0.4   minikube   <none>           <none>
-
-NAME                       TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE   SELECTOR
-service/flask-service      NodePort    10.98.212.149   <none>        80:30080/TCP   3m    app=flask
-service/mongodb            ClusterIP   10.103.2.129    <none>        27017/TCP      3m    app=mongodb
-service/mongodb-headless   ClusterIP   None            <none>        27017/TCP      3m    app=mongodb
-
-NAME                    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                 SELECTOR
-deployment.apps/flask   2/2     2            2           3m    flask        flask-mongodb-app:v1   app=flask
-
-NAME                       READY   AGE   CONTAINERS   IMAGES
-statefulset.apps/mongodb   1/1     3m    mongodb      mongo:8.0
-
-NAME                                            REFERENCE          TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
-horizontalpodautoscaler.autoscaling/flask-hpa   Deployment/flask   cpu: 45%/70%   2         5         2          3m
-
-NAME                          CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                    STORAGECLASS   AGE
-persistentvolume/mongodb-pv   1Gi        RWO            Retain           Bound    flask-demo/mongodb-pvc   manual         3m
-
-NAME                                STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS   AGE
-persistentvolumeclaim/mongodb-pvc   Bound    mongodb-pv   1Gi        RWO            manual         3m
-```
-
-Or manually using curl:
-```bash
-# 1. GET /
-curl -i http://localhost:5000/
-# Expected: HTTP 200, "Welcome to the Flask app! The current time is: ..."
-
-# 2. POST /data
-curl -i -X POST http://localhost:5000/data \
-  -H "Content-Type: application/json" \
-  -d '{"sampleKey":"sampleValue","author":"Aman"}'
-# Expected: HTTP 201, {"status": "Data inserted"}
-
-# 3. GET /data
-curl -i http://localhost:5000/data
-# Expected: HTTP 200, [{"sampleKey":"sampleValue","author":"Aman"}]
-
-# 4. POST Invalid Payload
-curl -i -X POST http://localhost:5000/data \
-  -H "Content-Type: application/json" \
-  -d 'not-json'
-# Expected: HTTP 400 Bad Request
-```
-
 ---
 
 ### Test 2: Database Persistence Verification
 
 This test proves that data survives pod deletion and failure:
 
-1. **Insert a test document**:
-   ```bash
-   curl -X POST http://localhost:5000/data \
-     -H "Content-Type: application/json" \
-     -d '{"persistenceCheck": "data-must-survive"}'
-   ```
-2. **Force delete the MongoDB Pod**:
+1. **Delete the active MongoDB Pod**:
    ```bash
    kubectl delete pod mongodb-0 -n flask-demo
    ```
-3. **Watch StatefulSet self-heal**:
+2. **Watch StatefulSet self-heal**:
    ```bash
-   kubectl get pods -n flask-demo -w
+   kubectl rollout status statefulset/mongodb -n flask-demo
    ```
-4. **Query data once pod is back Ready**:
+3. **Query data once pod is back Ready**:
    ```bash
-   curl http://localhost:5000/data
+   curl.exe http://localhost:5000/data
    ```
-   **Result**: The document `{"persistenceCheck": "data-must-survive"}` is retrieved successfully from `/data/db` on the PersistentVolume.
+
+#### Verified Terminal Output:
+```text
+PS C:\Users\amank\cp> kubectl delete pod mongodb-0 -n flask-demo
+pod "mongodb-0" deleted from flask-demo namespace
+
+PS C:\Users\amank\cp> kubectl rollout status statefulset/mongodb -n flask-demo
+Waiting for 1 pods to be ready...
+partitioned roll out complete: 1 new pods have been updated...
+
+PS C:\Users\amank\cp> curl.exe http://localhost:5000/data
+[{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794472230.5064094},{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794472314.1249523},{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794472375.721097}]
+```
+*Result: The documents are fully preserved across container recreation because data is mounted from the `PersistentVolume` at `/data/db`.*
 
 ---
 
@@ -550,24 +519,32 @@ This test proves that data survives pod deletion and failure:
 
 To demonstrate autoscaling up to 5 replicas under load:
 
-1. **Open Terminal 1 (Watch HPA and Replicas)**:
-   ```bash
-   kubectl get hpa flask-hpa -n flask-demo -w
-   ```
-2. **Open Terminal 2 (Watch Pod Status)**:
-   ```bash
-   kubectl get pods -n flask-demo -l app=flask -w
-   ```
-3. **Open Terminal 3 (Run Load Generator)**:
+1. **Generate sustained high CPU traffic**:
    ```bash
    python tests/test_api.py --url http://localhost:5000 --stress --duration 60 --concurrency 10
    ```
+2. **Monitor HPA & Pods**:
+   ```bash
+   kubectl get hpa flask-hpa -n flask-demo
+   kubectl get pods -n flask-demo -l app=flask
+   ```
 
 #### Observed Autoscaling Behavior:
-- **Baseline**: 2 replicas, CPU ~1% / 70%.
-- **Under Load**: CPU rises to >100% (>200m).
-- **Scale-Up**: HPA triggers scale-up: 2 -> 4 -> 5 replicas (capped at `maxReplicas: 5`).
-- **Cool-Down**: Once the load stops, after the stabilization window (default 5 minutes), HPA smoothly scales back down to 2 replicas.
+```text
+PS C:\Users\amank\cp> kubectl get hpa flask-hpa -n flask-demo
+NAME        REFERENCE          TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+flask-hpa   Deployment/flask   cpu: 125%/70%   2         5         4          5m44s
+
+PS C:\Users\amank\cp> kubectl get pods -n flask-demo -l app=flask
+NAME                     READY   STATUS    RESTARTS   AGE
+flask-6777577846-5kn26   1/1     Running   0          86s
+flask-6777577846-69cj7   1/1     Running   0          5m49s
+flask-6777577846-tfbph   1/1     Running   0          5m49s
+flask-6777577846-zjvvl   1/1     Running   0          86s
+```
+- **Scale-Up Trigger**: Average CPU utilization climbed to `125%` (well above the `70%` threshold).
+- **Replica Expansion**: HPA automatically scaled the deployment from 2 to 4 pods to distribute load.
+- **Cool-Down**: Once traffic subsided, the autoscaler stabilized and scaled back down to 2 replicas after the cooldown period.
 
 ---
 
