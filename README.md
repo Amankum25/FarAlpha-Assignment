@@ -535,3 +535,4 @@ kubectl delete pv mongodb-pv
 minikube stop
 # minikube delete
 ```
+

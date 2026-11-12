@@ -14,3 +14,4 @@ spec:
   hostPath:
     path: /data/mongodb
     type: DirectoryOrCreate
+

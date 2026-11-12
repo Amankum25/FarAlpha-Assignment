@@ -33,3 +33,4 @@ data:
     else
       echo "MONGO_APP_USERNAME or MONGO_APP_PASSWORD not set. Skipping."
     fi
+

@@ -31,3 +31,4 @@ if (!existingUser) {
 EOF
 
 echo "==> Application user initialization complete."
+

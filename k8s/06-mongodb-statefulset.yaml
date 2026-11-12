@@ -62,3 +62,4 @@ spec:
           configMap:
             name: mongodb-init
             defaultMode: 0755
+

@@ -7,3 +7,4 @@ data:
   MONGODB_HOST: "mongodb"
   MONGODB_PORT: "27017"
   MONGODB_DATABASE: "flask_db"
+

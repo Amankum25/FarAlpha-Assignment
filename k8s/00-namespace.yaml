@@ -4,3 +4,4 @@ metadata:
   name: flask-demo
   labels:
     app.kubernetes.io/name: flask-mongodb-stack
+

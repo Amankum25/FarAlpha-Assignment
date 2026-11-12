@@ -18,3 +18,4 @@ if (appUsername && appPassword) {
 } else {
   print("Warning: MONGO_APP_USERNAME or MONGO_APP_PASSWORD not available in process.env");
 }
+
