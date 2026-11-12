@@ -431,6 +431,70 @@ Execute the automated test script:
 ```bash
 python tests/test_api.py --url http://localhost:5000
 ```
+
+#### Actual Verified Output from Live Cluster Execution:
+```text
+============================================================
+RUNNING SMOKE TESTS AGAINST: http://localhost:5000
+============================================================
+
+[1] Testing GET / (Welcome endpoint)...
+    Status: 200
+    Response: Welcome to the Flask app! The current time is: 2026-11-12 08:17:08.358176
+    --> PASS
+
+[2] Testing Health Probes...
+    /health/live  -> Status: 200, Body: {"status":"alive"}
+    /health/ready -> Status: 200, Body: {"status":"ready"}
+    --> PASS
+
+[3] Testing POST /data (Insert document)...
+    Status: 201
+    Response: {"status":"Data inserted"}
+    --> PASS
+
+[4] Testing GET /data (Retrieve documents)...
+    Status: 200
+    Response: [{"internName":"Aman","sampleKey":"sampleValue","timestamp":1794471428.3660972}]
+    --> PASS
+
+[5] Testing Validation on invalid POST /data...
+    Status: 400, Response: {"error":"A valid JSON object is required"}
+    --> PASS
+
+============================================================
+ALL API SMOKE TESTS PASSED SUCCESSFULLY!
+============================================================
+```
+
+#### Actual Cluster Resources (`kubectl get all,pv,pvc,hpa -n flask-demo -o wide`):
+```text
+NAME                         READY   STATUS    RESTARTS   AGE   IP           NODE       NOMINATED NODE   READINESS GATES
+pod/flask-6777577846-fwx9t   1/1     Running   0          3m    10.244.0.6   minikube   <none>           <none>
+pod/flask-6777577846-mgxg9   1/1     Running   0          3m    10.244.0.5   minikube   <none>           <none>
+pod/mongodb-0                1/1     Running   0          3m    10.244.0.4   minikube   <none>           <none>
+
+NAME                       TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE   SELECTOR
+service/flask-service      NodePort    10.98.212.149   <none>        80:30080/TCP   3m    app=flask
+service/mongodb            ClusterIP   10.103.2.129    <none>        27017/TCP      3m    app=mongodb
+service/mongodb-headless   ClusterIP   None            <none>        27017/TCP      3m    app=mongodb
+
+NAME                    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                 SELECTOR
+deployment.apps/flask   2/2     2            2           3m    flask        flask-mongodb-app:v1   app=flask
+
+NAME                       READY   AGE   CONTAINERS   IMAGES
+statefulset.apps/mongodb   1/1     3m    mongodb      mongo:8.0
+
+NAME                                            REFERENCE          TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/flask-hpa   Deployment/flask   cpu: 45%/70%   2         5         2          3m
+
+NAME                          CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                    STORAGECLASS   AGE
+persistentvolume/mongodb-pv   1Gi        RWO            Retain           Bound    flask-demo/mongodb-pvc   manual         3m
+
+NAME                                STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+persistentvolumeclaim/mongodb-pvc   Bound    mongodb-pv   1Gi        RWO            manual         3m
+```
+
 Or manually using curl:
 ```bash
 # 1. GET /
